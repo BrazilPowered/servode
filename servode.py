@@ -16,12 +16,12 @@ log = logging.getLogger('servode')
 log.addHandler(logging.NullHandler())
 
 # Protocol version
-PROTOCOL_V = 1  # Set protocol version used with the Dynamixel AX-12
+PROTOCOL_V = 2  # Set protocol version used with the Dynamixel XM430
 
 # Default setting
 BAUDRATE_PERM = 1000000
 BAUDRATE_TEMP = 500000
-AX_12_TYPE = 'AX-12'
+SERVO_TYPE = 'AX-12'
 MX_TYPE = 'MX'
 TRUE = 1
 FALSE = 0
@@ -30,12 +30,14 @@ OFF = 0
 
 # Check which port is being used on your controller
 # ex) Windows: "COM1"   Linux: "/dev/ttyUSB0"
-DEVICENAME = "/dev/ttyUSB0".encode('utf-8')
+##DEVICENAME = "/dev/ttyUSB0".encode('utf-8')
+DEVICENAME = "COM1".encode('utf-8')
 
 COMM_SUCCESS = 0  # Communication Success result value
 COMM_TX_FAIL = -1001  # Communication Tx Failed
 
 # Dynamixel control table addresses
+# Addresses of type EEPROM can only be changed when torque_enable == 0 
 dxl_control = {
     "model_number": {
         "addr_type": "EEPROM",
@@ -44,223 +46,533 @@ dxl_control = {
         "comm_bytes": 2,
         "access": "r"
     },
-    "firmware_version": {
+    "model_information": {
         "addr_type": "EEPROM",
         "volatile": False,
         "address": 2,
+        "comm_bytes": 4,
+        "access": "r"
+    },
+    "firmware_version": {
+        "addr_type": "EEPROM",
+        "volatile": False,
+        "address": 6,
         "comm_bytes": 1,
         "access": "r"
     },
     "ID": {
         "addr_type": "EEPROM",
         "volatile": False,
-        "address": 3,
+        "address": 7,
         "comm_bytes": 1,
         "access": "rw"
     },
     "baud_rate": {
         "addr_type": "EEPROM",
         "volatile": False,
-        "address": 4,
-        "comm_bytes": 1,
-        "access": "rw"
-    },
-    "return_delay": {
-        "addr_type": "EEPROM",
-        "volatile": False,
-        "address": 5,
-        "comm_bytes": 1,
-        "access": "rw"
-    },
-    "cw_angle_limit": {
-        "addr_type": "EEPROM",
-        "volatile": False,
-        "address": 6,
-        "comm_bytes": 2,
-        "access": "rw"
-    },
-    "ccw_angle_limit": {
-        "addr_type": "EEPROM",
-        "volatile": False,
         "address": 8,
-        "comm_bytes": 2,
+        "comm_bytes": 1,
         "access": "rw"
     },
-    "highest_limit_temperature": {
+    "return_delay_time": {
+        "addr_type": "EEPROM",
+        "volatile": False,
+        "address": 9,
+        "comm_bytes": 1,
+        "access": "rw"
+    },
+    "drive_mode": {
+        "addr_type": "EEPROM",
+        "volatile": False,
+        "address": 10,
+        "comm_bytes": 1,
+        "access": "rw"
+    },
+    "operating_mode": {
         "addr_type": "EEPROM",
         "volatile": False,
         "address": 11,
         "comm_bytes": 1,
         "access": "rw"
     },
-    "lowest_limit_voltage": {
+    "secondary_shadow_id": {
         "addr_type": "EEPROM",
         "volatile": False,
         "address": 12,
         "comm_bytes": 1,
         "access": "rw"
     },
-    "highest_limit_voltage": {
+    "protocol_version": {
         "addr_type": "EEPROM",
         "volatile": False,
         "address": 13,
         "comm_bytes": 1,
         "access": "rw"
     },
-    "max_torque": {
+    "homing_offset": {
         "addr_type": "EEPROM",
         "volatile": False,
-        "address": 14,
+        "address": 20,
+        "comm_bytes": 4,
+        "access": "rw"
+    },
+    "moving_threshold": {
+        "addr_type": "EEPROM",
+        "volatile": False,
+        "address": 24,
+        "comm_bytes": 4,
+        "access": "rw"
+    },
+    "temperature_limit": {
+        "addr_type": "EEPROM",
+        "volatile": False,
+        "address": 31,
+        "comm_bytes": 1,
+        "access": "rw"
+    },
+    "max_voltage_limit": {
+        "addr_type": "EEPROM",
+        "volatile": False,
+        "address": 32,
         "comm_bytes": 2,
         "access": "rw"
     },
-    "status_return_level": {
+    "min_voltage_limit": {
         "addr_type": "EEPROM",
         "volatile": False,
-        "address": 16,
-        "comm_bytes": 1,
+        "address": 34,
+        "comm_bytes": 2,
         "access": "rw"
     },
-    "alarm_LED": {
+    "pwm_limit": {
         "addr_type": "EEPROM",
         "volatile": False,
-        "address": 17,
-        "comm_bytes": 1,
+        "address": 36,
+        "comm_bytes": 2,
         "access": "rw"
     },
-    "alarm_shutdown": {
+    "current_limit": {
         "addr_type": "EEPROM",
         "volatile": False,
-        "address": 18,
+        "address": 38,
+        "comm_bytes": 2,
+        "access": "rw"
+    },
+    "acceleration_limit": {
+        "addr_type": "EEPROM",
+        "volatile": False,
+        "address": 40,
+        "comm_bytes": 4,
+        "access": "rw"
+    },
+    "velocity_limit": {
+        "addr_type": "EEPROM",
+        "volatile": False,
+        "address": 44,
+        "comm_bytes": 4,
+        "access": "rw"
+    },
+    "max_position_limit": {
+        "addr_type": "EEPROM",
+        "volatile": False,
+        "address": 48,
+        "comm_bytes": 4,
+        "access": "rw"
+    },
+    "min_position_limit": {
+        "addr_type": "EEPROM",
+        "volatile": False,
+        "address": 52,
+        "comm_bytes": 4,
+        "access": "rw"
+    },
+    "shutdown": {
+        "addr_type": "EEPROM",
+        "volatile": False,
+        "address": 63,
         "comm_bytes": 1,
         "access": "rw"
     },
     "torque_enable": {
         "addr_type": "RAM",
         "volatile": True,
-        "address": 24,
+        "address": 64,
         "comm_bytes": 1,
         "access": "rw"
     },
     "LED": {
         "addr_type": "RAM",
         "volatile": True,
-        "address": 25,
+        "address": 65,
         "comm_bytes": 1,
         "access": "rw"
     },
-    "cw_compliance_margin": {
+    "status_return_level": {
         "addr_type": "RAM",
         "volatile": True,
-        "address": 26,
+        "address": 68,
         "comm_bytes": 1,
         "access": "rw"
     },
-    "ccw_compliance_margin": {
+    "registered_instruction": {
         "addr_type": "RAM",
         "volatile": True,
-        "address": 27,
+        "address": 69,
+        "comm_bytes": 1,
+        "access": "r"
+    },
+    "hardware_error_status": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 70,
+        "comm_bytes": 1,
+        "access": "r"
+    },
+    "velocity_i_gain": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 76,
+        "comm_bytes": 2,
+        "access": "rw"
+    },
+    "velocity_p_gain": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 78,
+        "comm_bytes": 2,
+        "access": "rw"
+    },
+    "position_d_gain": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 80,
+        "comm_bytes": 2,
+        "access": "rw"
+    },
+    "position_i_gain": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 82,
+        "comm_bytes": 2,
+        "access": "rw"
+    },
+    "position_p_gain": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 84,
+        "comm_bytes": 2,
+        "access": "rw"
+    },
+    "feedforward_2nd_gain": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 88,
+        "comm_bytes": 2,
+        "access": "rw"
+    },
+    "feedforward_1st_gain": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 90,
+        "comm_bytes": 2,
+        "access": "rw"
+    },
+    "bus_watchdog": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 98,
         "comm_bytes": 1,
         "access": "rw"
     },
-    "cw_compliance_slope": {
+    "goal_pwm": {
         "addr_type": "RAM",
         "volatile": True,
-        "address": 28,
-        "comm_bytes": 1,
+        "address": 100,
+        "comm_bytes": 2,
         "access": "rw"
     },
-    "ccw_compliance_slope": {
+    "goal_current": {
         "addr_type": "RAM",
         "volatile": True,
-        "address": 29,
-        "comm_bytes": 1,
+        "address": 102,
+        "comm_bytes": 2,
+        "access": "rw"
+    },
+    "goal_velocity": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 104,
+        "comm_bytes": 4,
+        "access": "rw"
+    },
+    "profile_acceleration": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 108,
+        "comm_bytes": 4,
+        "access": "rw"
+    },
+    "profile_velocity": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 112,
+        "comm_bytes": 4,
         "access": "rw"
     },
     "goal_position": {
         "addr_type": "RAM",
         "volatile": True,
-        "address": 30,
-        "comm_bytes": 2,
+        "address": 116,
+        "comm_bytes": 4,
         "access": "rw"
     },
-    "moving_speed": {
+    "realtime_tick": {
         "addr_type": "RAM",
         "volatile": True,
-        "address": 32,
+        "address": 120,
         "comm_bytes": 2,
-        "access": "rw"
-    },
-    "torque_limit": {
-        "addr_type": "RAM",
-        "volatile": True,
-        "address": 34,
-        "comm_bytes": 2,
-        "access": "rw"
-    },
-    "present_position": {
-        "addr_type": "RAM",
-        "volatile": True,
-        "address": 36,
-        "comm_bytes": 2,
-        "access": "r"
-    },
-    "present_speed": {
-        "addr_type": "RAM",
-        "volatile": True,
-        "address": 38,
-        "comm_bytes": 2,
-        "access": "r"
-    },
-    "present_load": {
-        "addr_type": "RAM",
-        "volatile": True,
-        "address": 40,
-        "comm_bytes": 2,
-        "access": "r"
-    },
-    "present_voltage": {
-        "addr_type": "RAM",
-        "volatile": True,
-        "address": 42,
-        "comm_bytes": 1,
-        "access": "r"
-    },
-    "present_temperature": {
-        "addr_type": "RAM",
-        "volatile": True,
-        "address": 43,
-        "comm_bytes": 1,
-        "access": "r"
-    },
-    "registered_instruction": {
-        "addr_type": "RAM",
-        "volatile": True,
-        "address": 44,
-        "comm_bytes": 1,
         "access": "r"
     },
     "moving": {
         "addr_type": "RAM",
         "volatile": True,
-        "address": 46,
+        "address": 122,
         "comm_bytes": 1,
         "access": "r"
     },
-    "lock": {
+    "moving_status": {
         "addr_type": "RAM",
         "volatile": True,
-        "address": 47,
+        "address": 123,
+        "comm_bytes": 1,
+        "access": "r"
+    },
+    "present_pwm": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 124,
+        "comm_bytes": 2,
+        "access": "r"
+    },
+    "present_current": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 126,
+        "comm_bytes": 2,
+        "access": "r"
+    },
+    "present_velocity": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 128,
+        "comm_bytes": 4,
+        "access": "r"
+    },
+    "present_position": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 132,
+        "comm_bytes": 4,
+        "access": "r"
+    },
+    "velocity_trajectory": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 136,
+        "comm_bytes": 4,
+        "access": "r"
+    },
+    "position_trajectory": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 140,
+        "comm_bytes": 4,
+        "access": "r"
+    },
+    "present_input_voltage": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 144,
+        "comm_bytes": 2,
+        "access": "r"
+    },
+    "present_temperature": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 146,
+        "comm_bytes": 1,
+        "access": "r"
+    },
+    "indirect_address_1": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 168,
+        "comm_bytes": 2,
+        "access": "rw"
+    },
+    "indirect_address_2": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 170,
+        "comm_bytes": 2,
+        "access": "rw"
+    },
+    "indirect_address_3": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 172,
+        "comm_bytes": 2,
+        "access": "rw"
+    },
+    "indirect_address_4": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 174,
+        "comm_bytes": 2,
+        "access": "rw"
+    },
+    "indirect_address_5": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 176,
+        "comm_bytes": 2,
+        "access": "rw"
+    },
+    "indirect_address_6": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 178,
+        "comm_bytes": 2,
+        "access": "rw"
+    },
+    "indirect_address_26": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 218,
+        "comm_bytes": 2,
+        "access": "rw"
+    },
+    "indirect_address_27": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 220,
+        "comm_bytes": 2,
+        "access": "rw"
+    },
+    "indirect_address_28": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 222,
+        "comm_bytes": 2,
+        "access": "rw"
+    },
+    "indirect_data_1": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 224,
         "comm_bytes": 1,
         "access": "rw"
     },
-    "punch": {
+    "indirect_data_2": {
         "addr_type": "RAM",
         "volatile": True,
-        "address": 48,
+        "address": 225,
+        "comm_bytes": 1,
+        "access": "rw"
+    },
+    "indirect_data_3": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 226,
+        "comm_bytes": 1,
+        "access": "rw"
+    },
+    "indirect_data_4": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 227,
+        "comm_bytes": 1,
+        "access": "rw"
+    },
+    "indirect_data_5": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 228,
+        "comm_bytes": 1,
+        "access": "rw"
+    },
+    "indirect_data_6": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 229,
+        "comm_bytes": 1,
+        "access": "rw"
+    },
+    "indirect_data_26": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 249,
+        "comm_bytes": 1,
+        "access": "rw"
+    },
+    "indirect_data_27": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 250,
+        "comm_bytes": 1,
+        "access": "rw"
+    },
+    "indirect_data_28": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 251,
+        "comm_bytes": 1,
+        "access": "rw"
+    },
+    #The Following are Protocol 2.0 accessible only
+    #(Addresses greater than 256 are not 1.0 accessible)
+    "indirect_address_29": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 578,
         "comm_bytes": 2,
         "access": "rw"
-    }
+    },
+    "indirect_data_30": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 580,
+        "comm_bytes": 2,
+        "access": "rw"
+    },
+    "indirect_data_56": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 632,
+        "comm_bytes": 2,
+        "access": "rw"
+    },
+    "indirect_data_29": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 634,
+        "comm_bytes": 1,
+        "access": "rw"
+    },
+    "indirect_data_30": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 635,
+        "comm_bytes": 1,
+        "access": "rw"
+    },
+    "indirect_data_56": {
+        "addr_type": "RAM",
+        "volatile": True,
+        "address": 661,
+        "comm_bytes": 1,
+        "access": "rw"
+    },
 }
 
 
@@ -585,7 +897,7 @@ class ServoProtocol(object):
         return status
 
     def __init__(self, baud_rate=BAUDRATE_PERM, manufacturer=ROBOTIS,
-                 servo_type=AX_12_TYPE, protocol_version=PROTOCOL_V,
+                 servo_type=SERVO_TYPE, protocol_version=PROTOCOL_V,
                  lock=threading.Lock()):
         """
 
@@ -595,7 +907,7 @@ class ServoProtocol(object):
         :param protocol_version:
         """
         super(ServoProtocol, self).__init__()
-        if servo_type == AX_12_TYPE:
+        if servo_type == SERVO_TYPE:
             self.servo_type = servo_type
         else:
             raise NotImplementedError("servo_type:{0} not understood.".format(
@@ -778,7 +1090,7 @@ class ServoProtocol(object):
             ]
          }
         """
-        if self.servo_type == AX_12_TYPE and \
+        if self.servo_type == SERVO_TYPE and \
                 self.protocol_version == PROTOCOL_V:
             raise NotImplementedError("AX-12 Servos do not support bulk_read.")
 
